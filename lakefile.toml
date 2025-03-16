@@ -5,6 +5,10 @@ defaultTargets = ["ACLibrary"]
 [[lean_lib]]
 name = "ACLibrary"
 
+[[lean_exe]]
+name = "ac-library"
+root = "Main"
+
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
