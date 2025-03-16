@@ -5,8 +5,7 @@ import Mathlib.Tactic.Ring
 import Mathlib.Data.Nat.Prime.Basic
 import Mathlib.Algebra.Field.ZMod
 
-
-set_option linter.flexible true
+open AtCoder
 
 axiom prime_998 : Nat.Prime 998244353
 

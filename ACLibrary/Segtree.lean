@@ -3,6 +3,7 @@ import Mathlib.Algebra.Group.Defs
 import Mathlib.Data.Set.Basic
 import Mathlib.Tactic.Common
 
+namespace AtCoder
 
 @[simp]
 abbrev Segtree.WF' [Monoid α] (data : Vector α (n * 2)) (k : Nat) (h' : 1 ≤ k := by get_elem_tactic) : Prop :=
