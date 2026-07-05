@@ -22,7 +22,7 @@ namespace Segtree
 
 variable {α : Type} [Monoid α]
 
-def mk (n : Nat) : Segtree α n := ⟨Vector.mkVector (n * 2) 1, by simp⟩
+def mk (n : Nat) : Segtree α n := ⟨Vector.replicate (n * 2) 1, by simp⟩
 
 private def updateAt (i : Nat) (data : Vector α (n * 2)) (h : i < n := by get_elem_tactic) : Vector α (n * 2) :=
   data.set i (data[i * 2] * data[i * 2 + 1])
@@ -62,7 +62,7 @@ private def build' (data : Vector α (n * 2)) : Segtree α n :=
       omega
 
 def build (data : Vector α n) : Segtree α n :=
-  build' <| Nat.mul_two n ▸ (Vector.mkVector n (1 : α) ++ data)
+  build' <| Nat.mul_two n ▸ (Vector.replicate n (1 : α) ++ data)
 
 def get (t : Segtree α n) (i : Fin n) : α := t.data[i + n]
 
@@ -128,7 +128,7 @@ def modify (t : Segtree α n) (i : Nat) (f : α → α) (h : i < n := by get_ele
 lemma get_updateAt_ne (data : Vector α (n * 2)) (i j : Nat) (h : i < n) (h' : j < n * 2) (h'' : i ≠ j)
   : (updateAt i data)[j] = data[j] := by
   dsimp [updateAt]
-  exact Vector.getElem_set_ne _ _ _ _ _ _ h''
+  exact Vector.getElem_set_ne _ _ h''
 
 @[simp]
 lemma buildAt_keep_larger (data : Vector α (n * 2)) (i : Nat) (hwf : WF_without data i) (h : i < n)
@@ -322,4 +322,3 @@ theorem fold_eq_fold_naive (t : Segtree α n) (l r : Nat) (h : 0 ≤ l ∧ l ≤
   · rw [fold_aux_eq_fold_naive', fold_naive_eq_fold_naive']
     simp
     omega
-

@@ -1,62 +1,26 @@
 -- test code for https://judge.yosupo.jp/problem/point_set_range_composite
 
 import ACLibrary
-import Mathlib.Tactic.Ring
-import Mathlib.Data.Nat.Prime.Basic
-import Mathlib.Algebra.Field.ZMod
+
+import Mathlib.Algebra.Group.TypeTags.Basic
+import Mathlib.Algebra.Tropical.Basic
+import Mathlib.Order.Nat
+
 
 open AtCoder
 
-axiom prime_998 : Nat.Prime 998244353
+abbrev M := Multiplicative (Tropical Natᵒᵈ)
 
-instance : Fact (Nat.Prime 998244353) := ⟨prime_998⟩
+def M.ofNat (n : Nat) : M := by
+  simp [M, Multiplicative, Tropical, OrderDual]
+  exact n
 
-abbrev Mint := ZMod 998244353
+def M.toNat (m : M) : Nat := by
+  simp [M, Multiplicative, Tropical, OrderDual] at m
+  exact m
 
-instance : ToString Mint where
-  toString x := toString x.val
-
-structure Affine : Type where
-  (a b : Mint)
-
-namespace Affine
-
-theorem ext {x y : Affine} : x.a = y.a → x.b = y.b → x = y := by
-  intros
-  cases x
-  cases y
-  simp_all only
-
--- compose left to right
-def compose (f g : Affine) : Affine := ⟨f.a * g.a, f.b * g.a + g.b⟩
-
-def one : Affine := ⟨1, 0⟩
-
-theorem compose_assoc (f g h : Affine) : (f.compose g).compose h = f.compose (g.compose h) := by
-  dsimp [compose]
-  ring_nf
-
-theorem compose_one_left (f : Affine) : one.compose f = f := by
-  cases f
-  dsimp [one, compose]
-  simp
-
-theorem compose_one_right (f : Affine) : f.compose one = f := by
-  cases f
-  dsimp [one, compose]
-  simp
-
-instance : Monoid Affine where
-  one := one
-  mul f g := f.compose g
-  mul_assoc := compose_assoc
-  one_mul := compose_one_left
-  mul_one := compose_one_right
-
-instance : CoeFun Affine (fun _ => Mint → Mint) where
-  coe f := fun x => f.a * x + f.b
-
-end Affine
+instance : ToString M where
+  toString m := toString m.toNat
 
 -- macro "assume!" cond:term : doElem =>
 --   `(doElem| have := if h : $cond then h else unreachable!)
@@ -65,16 +29,28 @@ def main : IO Unit := do
   let stdin ← IO.getStdin
   let [N, Q] := (← stdin.getLine).trimRight.splitOn.map String.toNat!
     | unreachable!
-  let mut segt : Segtree Affine N ← Segtree.build <$> (Vector.range N).mapM fun _ => do
-    let [a, b] := (← stdin.getLine).trimRight.splitOn.map String.toNat!
-      | unreachable!
-    pure <| Affine.mk a b
+  let A := (← stdin.getLine).trimRight.splitOn.map String.toNat!
+  let mut segt : Segtree M N := Segtree.build <| (Vector.range N).map fun i => .ofNat A[i]!
   for _ in [:Q] do
-    let [t, a, b, c] := (← stdin.getLine).trimRight.splitOn.map String.toNat!
+    let [t, x, y] := (← stdin.getLine).trimRight.splitOn.map String.toNat!
       | unreachable!
-    if t == 0 then
-      if _h : 0 ≤ a ∧ a < N then
-        segt := segt.set a ⟨b, c⟩
+    if t == 1 then
+      if _h : 1 ≤ x ∧ x ≤ N then
+        segt := segt.set (x - 1) (.ofNat y)
+    else if t == 2 then
+      if _h : 1 ≤ x ∧ x ≤ y ∧ y ≤ N then
+        println! segt.fold (x - 1) y
     else
-      if _h : 0 ≤ a ∧ a < b ∧ b ≤ N then
-        println! (segt.fold a b) c
+      if _h : 1 ≤ x ∧ x ≤ N then
+        println! Id.run do
+          let mut ok := x - 1
+          let mut ng := N + 1
+          while ok + 1 < ng do
+            let mid := (ng + ok) / 2
+            assert! ok < mid ∧ mid < ng
+            if _h' : x - 1 < mid ∧ mid ≤ N then
+              if (segt.fold (x - 1) mid).toNat < y then
+                ok := mid
+              else
+                ng := mid
+          return ok + 1
