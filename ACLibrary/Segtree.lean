@@ -69,6 +69,9 @@ def get (t : Segtree α n) (i : Fin n) : α := t.data[i + n]
 instance : GetElem (Segtree α n) Nat α fun _ i => i < n where
   getElem x i h := get x ⟨i, h⟩
 
+instance : GetElem (Segtree α n) (Fin n) α fun _ _ => True where
+  getElem x i _ := get x i
+
 lemma get_eq_get' (t : Segtree α n) (i : Nat) (h : i < n) : t[i] = t.data[i + n] := by
   dsimp [get, getElem]
 

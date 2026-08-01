@@ -13,3 +13,8 @@ root = "Main"
 name = "mathlib"
 scope = "leanprover-community"
 rev = "v4.22.0"
+
+[[require]]
+name = "Parser"
+scope = "fgdorais"
+rev = "617f4fa"

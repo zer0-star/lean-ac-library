@@ -1,11 +1,9 @@
--- test code for https://judge.yosupo.jp/problem/point_set_range_composite
-
 import ACLibrary
 
 import Mathlib.Algebra.Group.TypeTags.Basic
 import Mathlib.Algebra.Tropical.Basic
 import Mathlib.Order.Nat
-
+import Parser
 
 open AtCoder
 
@@ -25,14 +23,25 @@ instance : ToString M where
 -- macro "assume!" cond:term : doElem =>
 --   `(doElem| have := if h : $cond then h else unreachable!)
 
+def Parser.skipSpaces : TrivialParser Substring Char PUnit :=
+  Parser.dropMany Parser.Char.ASCII.whitespace
+
+def Parser.parseNats : TrivialParser Substring Char (Array Nat) :=
+  Parser.takeMany (Parser.Char.ASCII.parseNat <* Parser.skipSpaces)
+
+def String.parseNats (s : String) : Array Nat :=
+  match Parser.run Parser.parseNats s.toSubstring with 
+  | .ok _ xs => xs
+  | .error _ _ => #[]
+
 def main : IO Unit := do
   let stdin ← IO.getStdin
-  let [N, Q] := (← stdin.getLine).trimRight.splitOn.map String.toNat!
+  let #[N, Q] := (← stdin.getLine).parseNats
     | unreachable!
-  let A := (← stdin.getLine).trimRight.splitOn.map String.toNat!
+  let A := (← stdin.getLine).parseNats
   let mut segt : Segtree M N := Segtree.build <| (Vector.range N).map fun i => .ofNat A[i]!
   for _ in [:Q] do
-    let [t, x, y] := (← stdin.getLine).trimRight.splitOn.map String.toNat!
+    let #[t, x, y] := (← stdin.getLine).parseNats
       | unreachable!
     if t == 1 then
       if _h : 1 ≤ x ∧ x ≤ N then
