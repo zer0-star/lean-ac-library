@@ -179,7 +179,7 @@ def fold_aux
     p * q
   else
     let p' := if l % 2 = 1 then p * t.data[l] else  p
-    let q' := if r % 2 = 1 then (t.data[r - 1] * q) else q
+    let q' := if r % 2 = 1 then t.data[r - 1] * q else q
     t.fold_aux ((l+1)/2) (r/2) p' q'
 
 def fold (t : Segtree α n) (l r : Nat) (h : 0 ≤ l ∧ l ≤ r ∧ r ≤ n := by get_elem_tactic) : α :=
@@ -188,37 +188,56 @@ def fold (t : Segtree α n) (l r : Nat) (h : 0 ≤ l ∧ l ≤ r ∧ r ≤ n := 
   else
     t.fold_aux (l+n) (r+n) 1 1
 
-def fold_naive (t : Segtree α n) (l r : Nat) (h : 0 ≤ l ∧ l ≤ r ∧ r ≤ n := by get_elem_tactic) : α :=
-  if _ : l = r then
-    1
-  else
-    t[l] * t.fold_naive (l + 1) r
-termination_by r - l
+@[simp]
+private lemma foldr_mul_extract_self (xs : Array α) (i : Nat) :
+    (xs.extract i i).foldr (· * ·) 1 = 1 := by
+  rw [Array.extract_empty_of_stop_le_start (by omega)]
+  rfl
 
-private def fold_naive'
-  (t : Segtree α n) (l r : Nat)
-  (h : 1 ≤ l ∧ l ≤ r ∧ r ≤ n * 2 := by get_elem_tactic) : α :=
-  if _ : l = r then
-    1
-  else
-    t.data[l] * t.fold_naive' (l + 1) r
-termination_by r - l
+private lemma foldr_mul_extract_succ (xs : Array α) (l r : Nat)
+    (hlr : l < r) (hr : r ≤ xs.size) :
+    (xs.extract l r).foldr (· * ·) 1 =
+      xs[l] * (xs.extract (l + 1) r).foldr (· * ·) 1 := by
+  simp only [← Array.foldr_toList, Array.toList_extract, List.extract_eq_drop_take]
+  rw [List.drop_eq_getElem_cons (by simpa using lt_of_lt_of_le hlr hr)]
+  have : r - l = (r - (l + 1)) + 1 := by omega
+  rw [this, List.take_succ_cons, List.foldr_cons]
+  simp
 
-lemma fold_naive'_def (t : Segtree α n) (l r : Nat) (h : 1 ≤ l ∧ l < r ∧ r ≤ n * 2) : t.fold_naive' l r = t.data[l] * t.fold_naive' (l + 1) r := by
-  rw [fold_naive']
-  split
-  omega
-  simp_all only
+private lemma foldr_mul_extract_succ_right (xs : Array α) (l r : Nat)
+    (hlr : l ≤ r) (hr : r < xs.size) :
+    (xs.extract l r).foldr (· * ·) 1 * xs[r] =
+      (xs.extract l (r + 1)).foldr (· * ·) 1 := by
+  rw [Array.extract_succ_right (by omega) hr, Array.foldr_push]
+  simp only [mul_one, ← Array.foldr_toList]
+  induction (xs.extract l r).toList with
+  | nil => simp
+  | cons x xs ih => simp only [List.foldr_cons, ih, mul_assoc]
+
+def fold_naive (t : Segtree α n) (l r : Nat)
+    (_h : 0 ≤ l ∧ l ≤ r ∧ r ≤ n := by get_elem_tactic) : α :=
+  (t.data.toArray.extract (l + n) (r + n)).foldr (· * ·) 1
+
+private lemma foldr_data_succ (t : Segtree α n) (l r : Nat)
+    (h : 1 ≤ l ∧ l < r ∧ r ≤ n * 2) :
+    (t.data.toArray.extract l r).foldr (· * ·) 1 =
+      t.data[l] * (t.data.toArray.extract (l + 1) r).foldr (· * ·) 1 := by
+  simpa only [Vector.getElem_toArray] using
+    foldr_mul_extract_succ t.data.toArray l r (by omega) (by simp; omega)
 
 @[simp]
-lemma fold_naive_one (t : Segtree α n) (i : Nat) (h : 0 ≤ i ∧ i ≤ n ) : t.fold_naive i i = 1 := by
+private lemma foldr_data_succ_right (t : Segtree α n) (l r : Nat)
+    (h : 1 ≤ l ∧ l ≤ r ∧ r < n * 2) :
+    (t.data.toArray.extract l r).foldr (· * ·) 1 * t.data[r] =
+      (t.data.toArray.extract l (r + 1)).foldr (· * ·) 1 := by
+  simpa only [Vector.getElem_toArray] using
+    foldr_mul_extract_succ_right t.data.toArray l r (by omega) (by simp; omega)
+
+@[simp]
+lemma fold_naive_one (t : Segtree α n) (i : Nat) (h : 0 ≤ i ∧ i ≤ n) :
+    t.fold_naive i i = 1 := by
   rw [fold_naive]
-  simp
-
-@[simp]
-lemma fold_naive'_one (t : Segtree α n) (i : Nat) (h : 1 ≤ i ∧ i ≤ n * 2) : t.fold_naive' i i = 1 := by
-  rw [fold_naive']
-  simp
+  exact foldr_mul_extract_self _ _
 
 def leftmost (t : Segtree α n) (i : Nat) (h : 1 ≤ i ∧ i < 2 * n := by get_elem_tactic) : Nat :=
   if _ : i < n then
@@ -238,80 +257,62 @@ lemma leftmost_upper (t : Segtree α n) (i : Nat) (h : 1 ≤ i ∧ i < 2 * n) : 
   · exact leftmost_upper t (i * 2) _
   · simp_all
 
-lemma fold_naive_eq_fold_naive'
-  (t : Segtree α n) (l r : Nat) (h : 0 ≤ l ∧ l ≤ r ∧ r ≤ n) (h' : n ≥ 1)
-  : t.fold_naive l r = t.fold_naive' (l + n) (r + n) := by
-  rw [fold_naive, fold_naive']
-  split <;> split
-  trivial
-  omega
-  omega
-  have ih := fold_naive_eq_fold_naive' t (l + 1) r (by omega) h'
-  have : l + 1 + n = l + n + 1 := by omega
-  simp_all only [get_eq_get']
+private lemma foldr_data_double (t : Segtree α n) (l r : Nat)
+    (h : 1 ≤ l ∧ l ≤ r ∧ r ≤ n) :
+    (t.data.toArray.extract l r).foldr (· * ·) 1 =
+      (t.data.toArray.extract (l * 2) (r * 2)).foldr (· * ·) 1 := by
+  if hlr : l = r then
+    subst r
+    rw [foldr_mul_extract_self, foldr_mul_extract_self]
+  else
+    rw [foldr_data_succ t l r (by omega)]
+    rw [foldr_data_succ t (l * 2) (r * 2) (by omega)]
+    rw [foldr_data_succ t (l * 2 + 1) (r * 2) (by omega)]
+    have ih := foldr_data_double t (l + 1) r (by omega)
+    have hwf := t.wf l (by omega)
+    have : (l + 1) * 2 = l * 2 + 1 + 1 := by omega
+    simp_all only [mul_assoc]
 termination_by r - l
 
-lemma fold_naive'_double (t : Segtree α n) (l r : Nat) (h : 1 ≤ l ∧ l ≤ r ∧ r ≤ n)
-  : t.fold_naive' l r = t.fold_naive' (l * 2) (r * 2) := by
-  rw [fold_naive', fold_naive']
-  split <;> split <;> try omega
-  trivial
-  have := fold_naive'_double t (l + 1) r (by omega)
-  conv =>
-    rhs
-    rw [fold_naive']
+private lemma fold_aux_eq_foldr (t : Segtree α n) (l r : Nat) (p q : α)
+    (h : 1 ≤ l ∧ l ≤ r ∧ r ≤ n * 2) :
+    t.fold_aux l r p q =
+      p * (t.data.toArray.extract l r).foldr (· * ·) 1 * q := by
+  rw [fold_aux]
   split
-  omega
-  have := t.wf l (by omega)
-  have : (l + 1) * 2 = l * 2 + 1 + 1 := by omega
-  simp_all only [mul_assoc]
-termination_by r - l
-
-@[simp]
-lemma fold_naive'_r (t : Segtree α n) (l r : Nat) (h : 1 ≤ l ∧ l ≤ r ∧ r < n * 2)
-  : t.fold_naive' l r * t.data[r] = t.fold_naive' l (r + 1) := by
-    rw [fold_naive', fold_naive']
-    split <;> split <;> try omega
-    · have : 1 ≤ r + 1 ∧ r + 1 ≤ n * 2 := by omega
-      simp_all
-    · rw [mul_assoc, fold_naive'_r t (l + 1) r (by omega)]
-termination_by r - l
-
-lemma fold_aux_eq_fold_naive' (t : Segtree α n) (l r : Nat) (p q : α) (h' : 1 ≤ l ∧ l ≤ r ∧ r ≤ n * 2) : t.fold_aux l r p q = p * t.fold_naive' l r * q := by
-  rw [fold_aux, fold_naive']
-  split
-  · simp
-  split <;> split <;> simp
-  · rw [fold_aux_eq_fold_naive' t ((l + 1) / 2) (r / 2) (p * t.data[l]) (t.data[r - 1] * q) (by omega)]
-    rw [fold_naive'_double _ _ _ (by omega)]
+  · subst r
+    rw [foldr_mul_extract_self]
+    simp
+  split <;> split <;> simp only [*]
+  · rw [fold_aux_eq_foldr t ((l + 1) / 2) (r / 2) (p * t.data[l])
+      (t.data[r - 1] * q) (by omega)]
+    rw [foldr_data_double _ _ _ (by omega)]
     have : (l + 1) / 2 * 2 = l + 1 := by omega
     have : r / 2 * 2 = r - 1 := by omega
-    have := fold_naive'_r t (l + 1) (r - 1) (by omega)
-    simp_all [show r - 1 + 1 = r from by omega]
-    rw [← this]
+    have hr := foldr_data_succ_right t (l + 1) (r - 1) (by omega)
+    rw [foldr_data_succ t l r (by omega)]
+    simp_all only [show r - 1 + 1 = r from by omega]
+    rw [← hr]
     simp only [mul_assoc]
-  · rw [fold_aux_eq_fold_naive']
-    rw [fold_naive'_double _ _ _ (by omega)]
+  · rw [fold_aux_eq_foldr]
+    rw [foldr_data_double _ _ _ (by omega)]
     have : (l + 1) / 2 * 2 = l + 1 := by omega
     have : r / 2 * 2 = r := by omega
+    rw [foldr_data_succ t l r (by omega)]
     simp_all only [mul_assoc]
-  · rw [fold_aux_eq_fold_naive']
-    rw [fold_naive'_double _ _ _ (by omega)]
+  · rw [fold_aux_eq_foldr]
+    rw [foldr_data_double _ _ _ (by omega)]
     have : (l + 1) / 2 * 2 = l := by omega
     have : r / 2 * 2 = r - 1 := by omega
-    have := fold_naive'_r t l (r - 1) (by omega)
-    rw [← fold_naive'_def]
+    have hr := foldr_data_succ_right t l (r - 1) (by omega)
     simp_all only [show r - 1 + 1 = r from by omega]
-    rw [← this]
+    rw [← hr]
     simp only [mul_assoc]
-    omega
-  · rw [fold_aux_eq_fold_naive']
-    rw [fold_naive'_double _ _ _ (by omega)]
+  · rw [fold_aux_eq_foldr]
+    rw [foldr_data_double _ _ _ (by omega)]
     have : (l + 1) / 2 * 2 = l := by omega
     have : r / 2 * 2 = r := by omega
     simp_all
-    rw [fold_naive'_def]
-    omega
 termination_by r - l
 
 theorem fold_eq_fold_naive (t : Segtree α n) (l r : Nat) (h : 0 ≤ l ∧ l ≤ r ∧ r ≤ n)
@@ -322,6 +323,5 @@ theorem fold_eq_fold_naive (t : Segtree α n) (l r : Nat) (h : 0 ≤ l ∧ l ≤
     simp_all only
     rw [fold_naive_one]
     omega
-  · rw [fold_aux_eq_fold_naive', fold_naive_eq_fold_naive']
+  · rw [fold_aux_eq_foldr, fold_naive]
     simp
-    omega
